@@ -152,35 +152,52 @@
     });
 
     function renderData(data) {
-      const ebayItems = (data.ebay || []).slice(0, 10);
-      const pcItems = (data.pricecharting || []).slice(0, 10);
+      // Safely map array keys from API response variations
+      const ebayItems = (data.ebay || data.ebaySales || data.ebayListings || []).slice(0, 10);
+      const pcItems = (data.pricecharting || data.priceCharting || data.pcSales || []).slice(0, 10);
 
       // Render eBay Last 10 Table
       if (ebayItems.length === 0) {
         ebayTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No eBay listings found</td></tr>`;
       } else {
-        ebayTableBody.innerHTML = ebayItems.map(item => `
-          <tr class="hover:bg-slate-800/30">
-            <td class="py-3 px-4 font-medium text-slate-200">${item.title || 'N/A'}</td>
-            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${item.condition || 'Pre-Owned'}</span></td>
-            <td class="py-3 px-4 text-slate-400">${item.soldDate || 'N/A'}</td>
-            <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${parseFloat(item.price || 0).toFixed(2)}</td>
-          </tr>
-        `).join('');
+        ebayTableBody.innerHTML = ebayItems.map(item => {
+          const title = item.title || item.name || 'N/A';
+          const condition = item.condition || item.state || 'Pre-Owned';
+          const date = item.soldDate || item.date || item.endTime || 'N/A';
+          const rawPrice = item.price || item.currentPrice || item.soldPrice || 0;
+          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+
+          return `
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-4 font-medium text-slate-200">${title}</td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${condition}</span></td>
+              <td class="py-3 px-4 text-slate-400">${date}</td>
+              <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${price.toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('');
       }
 
       // Render PriceCharting Last 10 Table
       if (pcItems.length === 0) {
         pcTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No PriceCharting listings found</td></tr>`;
       } else {
-        pcTableBody.innerHTML = pcItems.map(item => `
-          <tr class="hover:bg-slate-800/30">
-            <td class="py-3 px-4 font-medium text-slate-200">${item.title || item.name || 'N/A'}</td>
-            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${item.grade || 'Ungraded'}</span></td>
-            <td class="py-3 px-4 text-slate-400">${item.date || 'N/A'}</td>
-            <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${parseFloat(item.price || 0).toFixed(2)}</td>
-          </tr>
-        `).join('');
+        pcTableBody.innerHTML = pcItems.map(item => {
+          const title = item.title || item.productName || item.name || 'N/A';
+          const grade = item.grade || item.condition || 'Ungraded';
+          const date = item.date || item.soldDate || 'N/A';
+          const rawPrice = item.price || item.loosePrice || item.cibPrice || 0;
+          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+
+          return `
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-4 font-medium text-slate-200">${title}</td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${grade}</span></td>
+              <td class="py-3 px-4 text-slate-400">${date}</td>
+              <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${price.toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('');
       }
 
       // Calculate Averages across both sources
@@ -191,18 +208,18 @@
     function calculateAverages(ebay, pc) {
       const categories = { Raw: [], 'PSA 8': [], 'PSA 9': [], 'PSA 10': [] };
 
-      const categorize = (title, price) => {
-        const val = parseFloat(price);
+      const categorize = (title, rawPrice) => {
+        const val = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, ''));
         if (isNaN(val) || val <= 0) return;
-        const t = title.toUpperCase();
-        if (t.includes('PSA 10')) categories['PSA 10'].push(val);
-        else if (t.includes('PSA 9')) categories['PSA 9'].push(val);
-        else if (t.includes('PSA 8')) categories['PSA 8'].push(val);
+        const t = String(title).toUpperCase();
+        if (t.includes('PSA 10') || t.includes('10')) categories['PSA 10'].push(val);
+        else if (t.includes('PSA 9') || t.includes('9')) categories['PSA 9'].push(val);
+        else if (t.includes('PSA 8') || t.includes('8')) categories['PSA 8'].push(val);
         else if (!t.includes('PSA') && !t.includes('BGS') && !t.includes('CGC')) categories['Raw'].push(val);
       };
 
-      ebay.forEach(item => categorize(item.title || '', item.price));
-      pc.forEach(item => categorize(item.title || item.grade || '', item.price));
+      ebay.forEach(item => categorize(item.title || item.name || '', item.price || item.soldPrice));
+      pc.forEach(item => categorize(item.title || item.grade || item.productName || '', item.price || item.loosePrice));
 
       const getAvg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
 
