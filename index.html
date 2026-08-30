@@ -139,6 +139,7 @@
         if (!res.ok) throw new Error(`Server returned status ${res.status}`);
         
         const data = await res.json();
+        console.log("Raw API Payload:", data);
         renderData(data);
       } catch (err) {
         showError('Failed to retrieve pricing data. Please verify backend service availability.');
@@ -151,21 +152,36 @@
       renderAverages(currentMarketAverages);
     });
 
-    function renderData(data) {
-      // Safely map array keys from API response variations
-      const ebayItems = (data.ebay || data.ebaySales || data.ebayListings || []).slice(0, 10);
-      const pcItems = (data.pricecharting || data.priceCharting || data.pcSales || []).slice(0, 10);
+    function parsePrice(val) {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      const clean = String(val).replace(/[^0-9.]/g, '');
+      return parseFloat(clean) || 0;
+    }
 
-      // Render eBay Last 10 Table
-      if (ebayItems.length === 0) {
+    function renderData(data) {
+      // Extract arrays handling any root wrap object (e.g. data.items, data.results, data.ebay)
+      let ebayItems = data.ebay || data.ebaySales || data.results || (Array.isArray(data) ? data : []);
+      let pcItems = data.pricecharting || data.priceCharting || data.pcSales || [];
+
+      // If data is returned directly inside a nested object
+      if (data.data) {
+        ebayItems = data.data.ebay || ebayItems;
+        pcItems = data.data.pricecharting || pcItems;
+      }
+
+      ebayItems = ebayItems.slice(0, 10);
+      pcItems = pcItems.slice(0, 10);
+
+      // Render eBay Table
+      if (!ebayItems.length) {
         ebayTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No eBay listings found</td></tr>`;
       } else {
         ebayTableBody.innerHTML = ebayItems.map(item => {
-          const title = item.title || item.name || 'N/A';
-          const condition = item.condition || item.state || 'Pre-Owned';
-          const date = item.soldDate || item.date || item.endTime || 'N/A';
-          const rawPrice = item.price || item.currentPrice || item.soldPrice || 0;
-          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+          const title = item.title || item.titleText || item.name || 'N/A';
+          const condition = item.condition || item.conditionDisplayName || item.state || 'Pre-Owned';
+          const date = item.soldDate || item.endDate || item.date || item.timestamp || 'N/A';
+          const price = parsePrice(item.price || item.priceUnformatted || item.value || item.convertedCurrentPrice);
 
           return `
             <tr class="hover:bg-slate-800/30">
@@ -178,16 +194,15 @@
         }).join('');
       }
 
-      // Render PriceCharting Last 10 Table
-      if (pcItems.length === 0) {
+      // Render PriceCharting Table
+      if (!pcItems.length) {
         pcTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No PriceCharting listings found</td></tr>`;
       } else {
         pcTableBody.innerHTML = pcItems.map(item => {
           const title = item.title || item.productName || item.name || 'N/A';
           const grade = item.grade || item.condition || 'Ungraded';
           const date = item.date || item.soldDate || 'N/A';
-          const rawPrice = item.price || item.loosePrice || item.cibPrice || 0;
-          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+          const price = parsePrice(item.price || item.loosePrice || item.cibPrice);
 
           return `
             <tr class="hover:bg-slate-800/30">
@@ -200,7 +215,6 @@
         }).join('');
       }
 
-      // Calculate Averages across both sources
       currentMarketAverages = calculateAverages(ebayItems, pcItems);
       renderAverages(currentMarketAverages);
     }
@@ -209,8 +223,8 @@
       const categories = { Raw: [], 'PSA 8': [], 'PSA 9': [], 'PSA 10': [] };
 
       const categorize = (title, rawPrice) => {
-        const val = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, ''));
-        if (isNaN(val) || val <= 0) return;
+        const val = parsePrice(rawPrice);
+        if (val <= 0) return;
         const t = String(title).toUpperCase();
         if (t.includes('PSA 10') || t.includes('10')) categories['PSA 10'].push(val);
         else if (t.includes('PSA 9') || t.includes('9')) categories['PSA 9'].push(val);
@@ -218,7 +232,7 @@
         else if (!t.includes('PSA') && !t.includes('BGS') && !t.includes('CGC')) categories['Raw'].push(val);
       };
 
-      ebay.forEach(item => categorize(item.title || item.name || '', item.price || item.soldPrice));
+      ebay.forEach(item => categorize(item.title || item.titleText || item.name || '', item.price || item.priceUnformatted || item.value));
       pc.forEach(item => categorize(item.title || item.grade || item.productName || '', item.price || item.loosePrice));
 
       const getAvg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
@@ -280,7 +294,6 @@
       errorBanner.classList.add('hidden');
     }
 
-    // Initialize blank cards on load
     renderAverages(currentMarketAverages);
   </script>
 </body>
