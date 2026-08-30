@@ -1,164 +1,270 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TCG Tracker Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCG Market Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-6 font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-6">
   <div class="max-w-6xl mx-auto space-y-8">
     
-    <!-- Header & Search Section -->
-    <header class="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-gray-800 pb-6">
+    <!-- Top Header & Controls -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
       <div>
         <h1 class="text-3xl font-bold text-indigo-400">TCG Market Tracker</h1>
-        <p class="text-sm text-gray-400">Live prices from eBay and PriceCharting</p>
+        <p class="text-sm text-slate-400">Live price aggregation & deal comparison</p>
       </div>
 
-      <form id="search-form" class="flex w-full md:w-auto gap-2">
-        <input 
-          type="text" 
-          id="search-input" 
-          placeholder="e.g., Charizard" 
-          class="bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 w-full md:w-80 focus:outline-none focus:border-indigo-500"
-          required
-        />
-        <button 
-          type="submit" 
-          id="search-button"
-          class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
-        >
-          <span>Search</span>
-        </button>
-      </form>
-    </header>
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- Compare Price Input -->
+        <div class="relative">
+          <span class="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
+          <input 
+            type="number" 
+            id="compare-input" 
+            placeholder="Compare Price" 
+            step="0.01"
+            class="pl-7 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
+          />
+        </div>
+
+        <!-- Search Form -->
+        <form id="search-form" class="flex items-center gap-2">
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="e.g., palkia gg67" 
+            required 
+            class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-64"
+          />
+          <button 
+            type="submit" 
+            id="search-button"
+            class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-lg text-sm transition-colors"
+          >
+            Search
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="hidden p-4 bg-red-900/40 border border-red-500 text-red-200 rounded-xl text-sm"></div>
 
     <!-- Loading Indicator -->
     <div id="loading" class="hidden text-center py-12">
       <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
-      <p class="text-gray-400 mt-2">Fetching market data from Apify scrapers...</p>
+      <p class="mt-3 text-slate-400 text-sm">Fetching market data from PriceCharting and eBay...</p>
     </div>
 
-    <!-- Error Message Banner -->
-    <div id="error-banner" class="hidden bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg text-sm">
-      Failed to retrieve pricing data. Please try again in a few moments.
-    </div>
-
-    <!-- Results Display -->
-    <main id="results-container" class="space-y-8">
+    <!-- Main Content Container -->
+    <div id="results-container" class="space-y-8">
       
-      <!-- PriceCharting Summary Section -->
-      <section>
-        <h2 class="text-xl font-semibold mb-4 text-indigo-300">PriceCharting Estimated Values</h2>
-        <div id="pricecharting-cards" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <!-- Populated by JavaScript -->
+      <!-- Top Line Indicators (Blended Averages & Comparison) -->
+      <div>
+        <h2 class="text-xl font-bold mb-4 text-slate-200">Blended Market Averages</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="averages-grid">
+          <!-- Cards injected dynamically -->
         </div>
-      </section>
+      </div>
 
-      <!-- eBay Recent Sales Table -->
-      <section>
-        <h2 class="text-xl font-semibold mb-4 text-indigo-300">eBay Recent Sales</h2>
-        <div class="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
-          <table class="w-full text-left text-sm text-gray-300">
-            <thead class="bg-gray-700/50 text-gray-400 uppercase text-xs">
+      <!-- eBay Recent Sales Table (Last 10) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h2 class="text-lg font-semibold text-slate-200">eBay Recent Sales (Last 10)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs text-slate-400 uppercase bg-slate-950/50">
               <tr>
-                <th class="p-3">Item Title</th>
-                <th class="p-3">Condition</th>
-                <th class="p-3">Sold Date</th>
-                <th class="p-3 text-right">Price</th>
+                <th class="py-3 px-4 rounded-l-lg">Item Title</th>
+                <th class="py-3 px-4">Condition</th>
+                <th class="py-3 px-4">Sold Date</th>
+                <th class="py-3 px-4 rounded-r-lg text-right">Price</th>
               </tr>
             </thead>
-            <tbody id="ebay-table-body" class="divide-y divide-gray-700">
-              <!-- Populated by JavaScript -->
+            <tbody id="ebay-table-body" class="divide-y divide-slate-800/60">
+              <tr><td colspan="4" class="py-4 text-center text-slate-500">No data loaded</td></tr>
             </tbody>
           </table>
         </div>
-      </section>
+      </div>
 
-    </main>
+      <!-- PriceCharting Recent Sales Table (Last 10) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h2 class="text-lg font-semibold text-slate-200">PriceCharting Recent Sales (Last 10)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs text-slate-400 uppercase bg-slate-950/50">
+              <tr>
+                <th class="py-3 px-4 rounded-l-lg">Title</th>
+                <th class="py-3 px-4">Grade / Condition</th>
+                <th class="py-3 px-4">Date</th>
+                <th class="py-3 px-4 rounded-r-lg text-right">Price</th>
+              </tr>
+            </thead>
+            <tbody id="pricecharting-table-body" class="divide-y divide-slate-800/60">
+              <tr><td colspan="4" class="py-4 text-center text-slate-500">No data loaded</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
+    </div>
   </div>
 
   <script>
     const API_BASE_URL = 'https://tcg-tracker-backend.onrender.com/api/search';
-    
+
     const searchForm = document.getElementById('search-form');
     const searchInput = document.getElementById('search-input');
-    const searchButton = document.getElementById('search-button');
+    const compareInput = document.getElementById('compare-input');
     const loadingEl = document.getElementById('loading');
     const errorBanner = document.getElementById('error-banner');
-    const pcCardsContainer = document.getElementById('pricecharting-cards');
     const ebayTableBody = document.getElementById('ebay-table-body');
+    const pcTableBody = document.getElementById('pricecharting-table-body');
+    const averagesGrid = document.getElementById('averages-grid');
+
+    let currentMarketAverages = { Raw: 0, 'PSA 8': 0, 'PSA 9': 0, 'PSA 10': 0 };
 
     searchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const query = searchInput.value.trim();
       if (!query) return;
 
-      // UI State: Loading
-      loadingEl.classList.remove('hidden');
-      errorBanner.classList.add('hidden');
-      searchButton.disabled = true;
+      showLoading(true);
+      hideError();
 
       try {
-        const response = await fetch(`${API_BASE_URL}?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`${API_BASE_URL}?q=${encodeURIComponent(query)}`);
+        if (!res.ok) throw new Error(`Server returned status ${res.status}`);
         
-        if (!response.ok) {
-          throw new Error(`Server returned status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        renderData(result.data);
-
+        const data = await res.json();
+        renderData(data);
       } catch (err) {
-        console.error('Fetch error:', err);
-        errorBanner.classList.remove('hidden');
+        showError('Failed to retrieve pricing data. Please verify backend service availability.');
       } finally {
-        loadingEl.classList.add('hidden');
-        searchButton.disabled = false;
+        showLoading(false);
       }
     });
 
+    compareInput.addEventListener('input', () => {
+      renderAverages(currentMarketAverages);
+    });
+
     function renderData(data) {
-      // 1. Render PriceCharting Cards
-      pcCardsContainer.innerHTML = '';
-      if (data.pricecharting && data.pricecharting.length > 0) {
-        data.pricecharting.forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
-          card.innerHTML = `
-            <div class="text-xs text-gray-400">${item.grade}</div>
-            <div class="text-xl font-bold text-white mt-1">${item.price}</div>
-          `;
-          pcCardsContainer.appendChild(card);
-        });
+      const ebayItems = (data.ebay || []).slice(0, 10);
+      const pcItems = (data.pricecharting || []).slice(0, 10);
+
+      // Render eBay Last 10 Table
+      if (ebayItems.length === 0) {
+        ebayTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No eBay listings found</td></tr>`;
       } else {
-        pcCardsContainer.innerHTML = `<p class="text-gray-400 text-sm col-span-4">No PriceCharting data found.</p>`;
+        ebayTableBody.innerHTML = ebayItems.map(item => `
+          <tr class="hover:bg-slate-800/30">
+            <td class="py-3 px-4 font-medium text-slate-200">${item.title || 'N/A'}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${item.condition || 'Pre-Owned'}</span></td>
+            <td class="py-3 px-4 text-slate-400">${item.soldDate || 'N/A'}</td>
+            <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${parseFloat(item.price || 0).toFixed(2)}</td>
+          </tr>
+        `).join('');
       }
 
-      // 2. Render eBay Recent Sales Table
-      ebayTableBody.innerHTML = '';
-      if (data.ebay && data.ebay.length > 0) {
-        data.ebay.forEach(item => {
-          const row = document.createElement('tr');
-          row.className = 'hover:bg-gray-750 transition-colors';
-          row.innerHTML = `
-            <td class="p-3 font-medium text-white">${item.title}</td>
-            <td class="p-3"><span class="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded">${item.badge}</span></td>
-            <td class="p-3 text-gray-400">${item.date}</td>
-            <td class="p-3 text-right font-semibold text-green-400">${item.price}</td>
-          `;
-          ebayTableBody.appendChild(row);
-        });
+      // Render PriceCharting Last 10 Table
+      if (pcItems.length === 0) {
+        pcTableBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No PriceCharting listings found</td></tr>`;
       } else {
-        ebayTableBody.innerHTML = `
-          <tr>
-            <td colspan="4" class="p-4 text-center text-gray-400">No eBay listings returned for this query.</td>
+        pcTableBody.innerHTML = pcItems.map(item => `
+          <tr class="hover:bg-slate-800/30">
+            <td class="py-3 px-4 font-medium text-slate-200">${item.title || item.name || 'N/A'}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${item.grade || 'Ungraded'}</span></td>
+            <td class="py-3 px-4 text-slate-400">${item.date || 'N/A'}</td>
+            <td class="py-3 px-4 text-right font-semibold text-emerald-400">$${parseFloat(item.price || 0).toFixed(2)}</td>
           </tr>
-        `;
+        `).join('');
       }
+
+      // Calculate Averages across both sources
+      currentMarketAverages = calculateAverages(ebayItems, pcItems);
+      renderAverages(currentMarketAverages);
     }
+
+    function calculateAverages(ebay, pc) {
+      const categories = { Raw: [], 'PSA 8': [], 'PSA 9': [], 'PSA 10': [] };
+
+      const categorize = (title, price) => {
+        const val = parseFloat(price);
+        if (isNaN(val) || val <= 0) return;
+        const t = title.toUpperCase();
+        if (t.includes('PSA 10')) categories['PSA 10'].push(val);
+        else if (t.includes('PSA 9')) categories['PSA 9'].push(val);
+        else if (t.includes('PSA 8')) categories['PSA 8'].push(val);
+        else if (!t.includes('PSA') && !t.includes('BGS') && !t.includes('CGC')) categories['Raw'].push(val);
+      };
+
+      ebay.forEach(item => categorize(item.title || '', item.price));
+      pc.forEach(item => categorize(item.title || item.grade || '', item.price));
+
+      const getAvg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+
+      return {
+        Raw: getAvg(categories['Raw']),
+        'PSA 8': getAvg(categories['PSA 8']),
+        'PSA 9': getAvg(categories['PSA 9']),
+        'PSA 10': getAvg(categories['PSA 10'])
+      };
+    }
+
+    function renderAverages(averages) {
+      const offer = parseFloat(compareInput.value);
+      const isOfferValid = !isNaN(offer) && offer > 0;
+
+      const keys = ['Raw', 'PSA 8', 'PSA 9', 'PSA 10'];
+      averagesGrid.innerHTML = keys.map(key => {
+        const avg = averages[key];
+        let diffHtml = '';
+
+        if (isOfferValid && avg > 0) {
+          const diffVal = offer - avg;
+          const diffPct = (diffVal / avg) * 100;
+          const isBelow = diffVal <= 0;
+          
+          const colorClass = isBelow ? 'text-emerald-400' : 'text-red-400';
+          const sign = diffVal > 0 ? '+' : '';
+
+          diffHtml = `
+            <div class="mt-2 text-xs font-semibold ${colorClass}">
+              ${sign}$${diffVal.toFixed(2)} (${sign}${diffPct.toFixed(1)}%) vs Offer
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">${key} Avg</span>
+            <div class="text-2xl font-bold text-slate-100 mt-1">
+              ${avg > 0 ? `$${avg.toFixed(2)}` : 'N/A'}
+            </div>
+            ${diffHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function showLoading(state) {
+      loadingEl.classList.toggle('hidden', !state);
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorBanner.classList.add('hidden');
+    }
+
+    // Initialize blank cards on load
+    renderAverages(currentMarketAverages);
   </script>
 </body>
 </html>
